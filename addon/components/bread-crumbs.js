@@ -1,17 +1,18 @@
-import Component from '@ember/component';
-import { copy } from 'ember-copy';
-import { assert } from '@ember/debug';
-import { deprecate } from '@ember/application/deprecations';
-import { typeOf, isPresent } from '@ember/utils';
 import {
-  setProperties,
-  getWithDefault,
   computed,
-  get
+  get,
+  getWithDefault,
+  setProperties
 } from '@ember/object';
-import { getOwner } from '@ember/application';
-import { A as emberArray } from '@ember/array';
+import { isPresent, typeOf } from '@ember/utils';
+
+import Component from '@ember/component';
+import { assert } from '@ember/debug';
 import { classify } from '@ember/string';
+import { copy } from 'ember-copy';
+import { deprecate } from '@ember/application/deprecations';
+import { A as emberArray } from '@ember/array';
+import { getOwner } from '@ember/application';
 import layout from '../templates/components/bread-crumbs';
 import { inject as service } from '@ember/service';
 
@@ -28,8 +29,9 @@ export default Component.extend({
   reverse: false,
   classNameBindings: ['breadCrumbClass'],
   hasBlock: bool('template').readOnly(),
-  currentUrl: readOnly('routerService.currentURL'),
-  currentRouteName: readOnly('routerService.currentRouteName'),
+  routing: service('-routing'),
+  currentUrl: readOnly('applicationRoute.router.url'),
+  currentRouteName: readOnly('applicationRoute.controller.currentRouteName'),
 
   routeHierarchy: computed('currentUrl', 'currentRouteName', 'reverse', {
     get() {
@@ -80,7 +82,22 @@ export default Component.extend({
   },
 
   _lookupRoute(routeName) {
-    return getOwner(this).lookup(`route:${routeName}`);
+    let routeOwner = getOwner(this);
+    let engineInfo;
+    if (get(this, 'routing.router')._engineInfoByRoute) {
+      engineInfo = get(this, 'routing.router')._engineInfoByRoute[routeName];
+    }
+
+    if (engineInfo) {
+      let engineInstance = get(this, 'routing.router')._getEngineInstance(engineInfo);
+
+      routeOwner = engineInstance;
+      routeName = engineInfo.localFullName;
+    }
+
+    let fullRouteName = `route:${routeName}`;
+
+    return routeOwner.lookup(fullRouteName);
   },
 
   _lookupBreadCrumb(routeNames, filteredRouteNames) {
